@@ -7,8 +7,7 @@ var del = require('del');
 
 module.exports = function(options) {
   options = options || {};
-  options.serverHost = options.serverHost || 'localhost';
-  options.serverPort = options.serverPort || '';
+  options.baseUrl = options.baseUrl || 'http://localhost';
   options.multerOptions = options.multerOptions || {};
   options.lruOptions = options.lruOptions || {};
   options.multerOptions = objectAssign({
@@ -48,8 +47,7 @@ module.exports = function(options) {
         var file = req.files[name];
         var hash = file.name.substring(0, 32);
         response.push({
-          url: 'http://' + options.serverHost
-          + options.serverPort + '/download/' + hash
+          url: options.baseUrl + '/download/' + hash
         });
 
         debug('cache.set: ', file);
