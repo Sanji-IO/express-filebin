@@ -7,6 +7,7 @@ var del = require('del');
 
 module.exports = function(options) {
   options = options || {};
+  options.forceClean = (options.forceClean === false) ? false : true;
   options.baseUrl = options.baseUrl || 'http://localhost';
   options.multerOptions = options.multerOptions || {};
   options.lruOptions = options.lruOptions || {};
@@ -14,7 +15,7 @@ module.exports = function(options) {
     dest: '/run/shm/upoloads',
     limits: {
       fieldNameSize: 100,
-      fileSize: 1024 * 100,
+      fileSize: 1024 * 1024 * 100,
       files: 10,
       fields: 10
     },
@@ -22,7 +23,12 @@ module.exports = function(options) {
       debug('onFileSizeLimit: ' + file.originalname);
 
       // delete the partially written file
-      fs.unlink('./' + file.path)
+      del(file.path, {force: true});
+    },
+
+    onError: function(error, next) {
+      console.error(error);
+      next(error);
     }
   }, options.multerOptions);
 
@@ -37,16 +43,33 @@ module.exports = function(options) {
     }
   }, options.lruOptions);
 
+  // clean up
+  if (options.forceClean) {
+    del.sync(options.multerOptions.dest, {force: true});
+  }
+
   var cache = LRU(options.lruOptions);
   var router = express.Router();
   router
     .use(multer(options.multerOptions))
     .post('/upload', function(req, res, next) {
       var response = [];
+      var statusCode = 200;
       for (var name in req.files) {
         var file = req.files[name];
         var hash = file.name.substring(0, 32);
+
+        if (file.truncated) {
+          response.push({
+            field: name,
+            message: 'File size exceeds configured limit.'
+          });
+          statusCode = 202;
+          continue;
+        }
+
         response.push({
+          field: name,
           url: options.baseUrl + '/download/' + hash
         });
 
@@ -58,7 +81,7 @@ module.exports = function(options) {
         response = response[0];
       }
 
-      res.json(response);
+      res.status(statusCode).json(response);
     })
     .get('/download/:id', function(req, res, next) {
       var id = req.params.id;
