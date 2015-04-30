@@ -12,7 +12,7 @@ module.exports = function(options) {
   options.multerOptions = options.multerOptions || {};
   options.lruOptions = options.lruOptions || {};
   options.multerOptions = objectAssign({
-    dest: '/run/shm/upoloads',
+    dest: __dirname + '/uploads',
     limits: {
       fieldNameSize: 100,
       fileSize: 1024 * 1024 * 100,
