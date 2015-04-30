@@ -48,52 +48,56 @@ module.exports = function(options) {
     del.sync(options.multerOptions.dest, {force: true});
   }
 
+  var uploadHandler = function(req, res, next) {
+    var response = [];
+    var statusCode = 200;
+    for (var name in req.files) {
+      var file = req.files[name];
+      var hash = file.name.substring(0, 32);
+
+      if (file.truncated) {
+        response.push({
+          field: name,
+          message: 'File size exceeds configured limit.'
+        });
+        statusCode = 202;
+        continue;
+      }
+
+      response.push({
+        field: name,
+        url: options.baseUrl + '/download/' + hash
+      });
+
+      debug('cache.set: ', file);
+      cache.set(hash, file);
+    }
+
+    if (response.length === 1) {
+      response = response[0];
+    }
+
+    res.status(statusCode).json(response);
+  };
+
+  var downloadHandler =  function(req, res, next) {
+    var id = req.params.id;
+    var fileObj = cache.get(id);
+    if (fileObj === undefined) {
+      return res.status(404).json({message: 'File not found!'});
+    }
+
+    res.download(fileObj.path, fileObj.fieldname, function(err) {
+      if (err) return next(err);
+    });
+  };
+
   var cache = LRU(options.lruOptions);
   var router = express.Router();
   router
     .use(multer(options.multerOptions))
-    .post('/upload', function(req, res, next) {
-      var response = [];
-      var statusCode = 200;
-      for (var name in req.files) {
-        var file = req.files[name];
-        var hash = file.name.substring(0, 32);
-
-        if (file.truncated) {
-          response.push({
-            field: name,
-            message: 'File size exceeds configured limit.'
-          });
-          statusCode = 202;
-          continue;
-        }
-
-        response.push({
-          field: name,
-          url: options.baseUrl + '/download/' + hash
-        });
-
-        debug('cache.set: ', file);
-        cache.set(hash, file);
-      }
-
-      if (response.length === 1) {
-        response = response[0];
-      }
-
-      res.status(statusCode).json(response);
-    })
-    .get('/download/:id', function(req, res, next) {
-      var id = req.params.id;
-      var fileObj = cache.get(id);
-      if (fileObj === undefined) {
-        return res.status(404).json({message: 'File not found!'});
-      }
-
-      res.download(fileObj.path, fileObj.fieldname, function(err) {
-        if (err) return next(err);
-      });
-    });
+    .post('/upload', uploadHandler)
+    .get('/download/:id', downloadHandler);
 
   return router;
 };

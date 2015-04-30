@@ -6,6 +6,14 @@ var del = require('del');
 var fs = require('fs');
 var sinon = require('sinon');
 
+describe('Create two seperate instance', function() {
+  it('should return different instance', function() {
+    var instance1 = filebin();
+    var instance2 = filebin();
+    instance1.should.be.not.equal(instance2);
+  });
+});
+
 describe('Upload and download files from given url', function() {
   var app;
   var fileHash;
@@ -22,7 +30,7 @@ describe('Upload and download files from given url', function() {
   });
 
   describe('[POST] /upload Upload file', function() {
-    it('should respond 200 OK and create the file on server"', function(done) {
+    it('should respond 200 OK and create the file on server', function(done) {
       request(app)
         .post('/upload')
         .attach('firmware.zip', __dirname + '/api.js')
