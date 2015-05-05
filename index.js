@@ -5,12 +5,35 @@ var objectAssign = require('object-assign');
 var debug = require('debug')('filebin');
 var del = require('del');
 
+var onUpload = function(req, res, next) {
+  res.status(req.upload.code).json(req.upload.response);
+};
+
+var onDownload = function(req, res, next) {
+  res.download(req.download.file.path,
+    req.download.file.fieldname, function(err) {
+    if (err) return next(err);
+  });
+};
+
 module.exports = function(options) {
   options = options || {};
   options.forceClean = (options.forceClean === false) ? false : true;
   options.baseUrl = options.baseUrl || 'http://localhost';
   options.multerOptions = options.multerOptions || {};
   options.lruOptions = options.lruOptions || {};
+
+  if (!options.onUpload || typeof (options.onUpload) !== 'function') {
+    debug('Use default onUpload');
+    options.onUpload = onUpload;
+  }
+
+  if (!options.onDownload || typeof (options.onDownload) !== 'function') {
+    debug('Use default onDownload');
+    options.onDownload = onDownload;
+  }
+
+  // Multer config
   options.multerOptions = objectAssign({
     dest: __dirname + '/uploads',
     limits: {
@@ -19,26 +42,28 @@ module.exports = function(options) {
       files: 10,
       fields: 10
     },
+
     onFileSizeLimit: function(file) {
-      debug('onFileSizeLimit: ' + file.originalname);
+      debug('onFileSizeLimit' + file.originalname);
 
       // delete the partially written file
       del(file.path, {force: true});
     },
 
     onError: function(error, next) {
-      console.error(error);
+      debug(error);
       next(error);
     }
   }, options.multerOptions);
 
+  // LRU config
   options.lruOptions = objectAssign({
     max: 50,
     maxAge: 60 * 60 * 1000,
     dispose: function(key, n) {
-      debug('Dispose file: ', n);
+      debug('Dispose file', n);
       del(n.path, function() {
-        debug('Delete:', n.path);
+        debug('Delete', n.path);
       });
     }
   }, options.lruOptions);
@@ -69,7 +94,7 @@ module.exports = function(options) {
         url: options.baseUrl + '/download/' + hash
       });
 
-      debug('cache.set: ', file);
+      debug('cache.set', file);
       cache.set(hash, file);
     }
 
@@ -77,7 +102,12 @@ module.exports = function(options) {
       response = response[0];
     }
 
-    res.status(statusCode).json(response);
+    req.upload = {
+      code: statusCode,
+      response: response
+    }
+
+    next();
   };
 
   var downloadHandler =  function(req, res, next) {
@@ -87,17 +117,19 @@ module.exports = function(options) {
       return res.status(404).json({message: 'File not found!'});
     }
 
-    res.download(fileObj.path, fileObj.fieldname, function(err) {
-      if (err) return next(err);
-    });
+    req.download = {
+      file: fileObj
+    };
+
+    next();
   };
 
   var cache = LRU(options.lruOptions);
   var router = express.Router();
   router
     .use(multer(options.multerOptions))
-    .post('/upload', uploadHandler)
-    .get('/download/:id', downloadHandler);
+    .post('/upload', uploadHandler, onUpload)
+    .get('/download/:id', downloadHandler, onDownload);
 
   return router;
 };
