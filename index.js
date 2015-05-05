@@ -22,6 +22,8 @@ module.exports = function(options) {
   options.baseUrl = options.baseUrl || 'http://localhost';
   options.multerOptions = options.multerOptions || {};
   options.lruOptions = options.lruOptions || {};
+  options.uploadPath = options.uploadPath || '/upload';
+  options.downloadPath = options.downloadPath || '/download/:id';
 
   if (!options.onUpload || typeof (options.onUpload) !== 'function') {
     debug('Use default onUpload');
@@ -126,10 +128,12 @@ module.exports = function(options) {
 
   var cache = LRU(options.lruOptions);
   var router = express.Router();
+
   router
     .use(multer(options.multerOptions))
-    .post('/upload', uploadHandler, onUpload)
-    .get('/download/:id', downloadHandler, onDownload);
+    .post(options.uploadPath, uploadHandler, onUpload)
+    .put(options.uploadPath, uploadHandler, onUpload)
+    .get(options.downloadPath, downloadHandler, onDownload);
 
   return router;
 };
