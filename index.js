@@ -20,7 +20,7 @@ module.exports = function(options) {
   options = options || {};
   options.forceClean = (options.forceClean === false) ? false : true;
   options.baseUrl = options.baseUrl || 'http://localhost';
-  options.multerOptions = options.multerOptions || {};
+  options.uploadOptions = options.uploadOptions || {};
   options.lruOptions = options.lruOptions || {};
   options.uploadPath = options.uploadPath || '/upload';
   options.downloadPath = options.downloadPath || '/download/:id';
@@ -35,28 +35,16 @@ module.exports = function(options) {
     options.onDownload = onDownload;
   }
 
-  // Multer config
-  options.multerOptions = objectAssign({
+  // Upload config
+  options.uploadOptions = objectAssign({
     dest: __dirname + '/uploads',
     limits: {
       fieldNameSize: 100,
       fileSize: 1024 * 1024 * 100,
-      files: 10,
-      fields: 10
-    },
-
-    onFileSizeLimit: function(file) {
-      debug('onFileSizeLimit' + file.originalname);
-
-      // delete the partially written file
-      del(file.path, {force: true});
-    },
-
-    onError: function(error, next) {
-      debug(error);
-      next(error);
+      files: 5,
+      fields: 5
     }
-  }, options.multerOptions);
+  }, options.uploadOptions);
 
   // LRU config
   options.lruOptions = objectAssign({
@@ -72,7 +60,7 @@ module.exports = function(options) {
 
   // clean up
   if (options.forceClean) {
-    del.sync(options.multerOptions.dest, {force: true});
+    del.sync(options.uploadOptions.dest, {force: true});
   }
 
   var uploadHandler = function(req, res, next) {
@@ -80,7 +68,7 @@ module.exports = function(options) {
     var statusCode = 200;
     for (var name in req.files) {
       var file = req.files[name];
-      var hash = file.name.substring(0, 32);
+      var hash = file.filename
 
       if (file.truncated) {
         response.push({
@@ -128,11 +116,11 @@ module.exports = function(options) {
 
   var cache = LRU(options.lruOptions);
   var router = express.Router();
+  var uploader = multer(options.uploadOptions);
 
   router
-    .use(multer(options.multerOptions))
-    .post(options.uploadPath, uploadHandler, onUpload)
-    .put(options.uploadPath, uploadHandler, onUpload)
+    .post(options.uploadPath, uploader.any(), uploadHandler, onUpload)
+    .put(options.uploadPath, uploader.any(), uploadHandler, onUpload)
     .get(options.downloadPath, downloadHandler, onDownload);
 
   return router;

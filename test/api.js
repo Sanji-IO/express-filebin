@@ -49,8 +49,9 @@ describe('Upload and download files from given url', function() {
       request(app)
         .get('/download/' + fileHash)
         .expect(200)
-        .expect('Content-Type', /javascript/)
+        .expect('Content-Type', /application\/octet-stream/)
         .end(function(err, res) {
+          if (err) throw err;
           res.headers['content-disposition']
             .should.be.equal('attachment; filename=\"firmware.zip\"');
           done();
