@@ -66,13 +66,13 @@ module.exports = function(options) {
   var uploadHandler = function(req, res, next) {
     var response = [];
     var statusCode = 200;
-    for (var name in req.files) {
-      var file = req.files[name];
+    for (var index in req.files) {
+      var file = req.files[index];
       var hash = file.filename
 
       if (file.truncated) {
         response.push({
-          field: name,
+          field: file.fieldname,
           message: 'File size exceeds configured limit.'
         });
         statusCode = 202;
@@ -80,7 +80,8 @@ module.exports = function(options) {
       }
 
       response.push({
-        field: name,
+        fieldname: file.fieldname,
+        physicalPath: file.path,
         url: options.baseUrl + '/download/' + hash
       });
 
