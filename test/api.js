@@ -23,7 +23,7 @@ describe('Upload and download files from given url', function() {
     del.sync(__dirname + '/uploads/*');
     app = express();
     app.use(filebin({
-      multerOptions: {
+      uploadOptions: {
         dest: __dirname + '/uploads'
       }
     }));
@@ -37,6 +37,7 @@ describe('Upload and download files from given url', function() {
         .expect(200)
         .expect('Content-Type', /json/)
         .end(function(err, res) {
+          if (err) throw err;
           var url = res.body.url;
           fileHash = url.substring(url.length - 32);
           done();
@@ -67,7 +68,7 @@ describe('Upload and download files from given url', function() {
         .end(function(err, res) {
           if (err) throw err;
 
-          // add some delya for async delete operation
+          // add some delay for async delete operation
           setTimeout(function() {
             require('fs').exists(__dirname + '/uploads/' + fileHash + '.js', function(exists) {
               if (!exists) {
@@ -85,3 +86,34 @@ describe('Upload and download files from given url', function() {
   });
 });
 
+describe('[POST] /upload Upload file that exceed the size', function() {
+  var app;
+  var fileHash;
+  var clock = sinon.useFakeTimers();
+
+  before(function() {
+    del.sync(__dirname + '/uploads/*');
+    app = express();
+    app.use(filebin({
+      uploadOptions: {
+        dest: __dirname + '/uploads',
+        limits: {
+          fileSize: 100
+        }
+      }
+    }));
+  });
+
+  it('should respond 202 OK and create the file on server', function(done) {
+    request(app)
+      .post('/upload')
+      .attach('firmware.zip', __dirname + '/api.js')
+      .attach('ttt.zip', __dirname + '/../.jscsrc')
+      .expect(400)
+      .expect('Content-Type', /json/)
+      .end(function(err, res) {
+        if (err) throw err;
+        done();
+      });
+  });
+});

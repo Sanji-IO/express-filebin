@@ -68,16 +68,7 @@ module.exports = function(options) {
     var statusCode = 200;
     for (var index in req.files) {
       var file = req.files[index];
-      var hash = file.filename
-
-      if (file.truncated) {
-        response.push({
-          field: file.fieldname,
-          message: 'File size exceeds configured limit.'
-        });
-        statusCode = 202;
-        continue;
-      }
+      var hash = file.filename;
 
       response.push({
         fieldname: file.fieldname,
@@ -115,6 +106,11 @@ module.exports = function(options) {
     next();
   };
 
+  var errorHandler = function(err, req, res, next) {
+    if (!err) return next();
+    res.status(400).json({message: 'File exceeds configured limit.'});
+  }
+
   var cache = LRU(options.lruOptions);
   var router = express.Router();
   var uploader = multer(options.uploadOptions);
@@ -122,7 +118,8 @@ module.exports = function(options) {
   router
     .post(options.uploadPath, uploader.any(), uploadHandler, onUpload)
     .put(options.uploadPath, uploader.any(), uploadHandler, onUpload)
-    .get(options.downloadPath, downloadHandler, onDownload);
+    .get(options.downloadPath, downloadHandler, onDownload)
+    .use(errorHandler);
 
   return router;
 };
