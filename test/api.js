@@ -6,20 +6,20 @@ var del = require('del');
 var fs = require('fs');
 var sinon = require('sinon');
 
-describe('Create two seperate instance', function() {
-  it('should return different instance', function() {
+describe('Create two seperate instance', function () {
+  it('should return different instance', function () {
     var instance1 = filebin();
     var instance2 = filebin();
     instance1.should.be.not.equal(instance2);
   });
 });
 
-describe('Upload and download files from given url', function() {
+describe('Upload and download files from given url', function () {
   var app;
   var fileHash;
   var clock = sinon.useFakeTimers();
 
-  before(function() {
+  before(function () {
     del.sync(__dirname + '/uploads/*');
     app = express();
     app.use(filebin({
@@ -29,14 +29,14 @@ describe('Upload and download files from given url', function() {
     }));
   });
 
-  describe('[POST] /upload Upload file', function() {
-    it('should respond 200 OK and create the file on server', function(done) {
+  describe('[POST] /upload Upload file', function () {
+    it('should respond 200 OK and create the file on server', function (done) {
       request(app)
         .post('/upload')
         .attach('firmware.zip', __dirname + '/api.js')
         .expect(200)
         .expect('Content-Type', /json/)
-        .end(function(err, res) {
+        .end(function (err, res) {
           if (err) throw err;
           var url = res.body.url;
           fileHash = url.substring(url.length - 32);
@@ -45,13 +45,13 @@ describe('Upload and download files from given url', function() {
     });
   });
 
-  describe('[GET] /download/{hashvalue} Download previous uploaded file', function() {
-    it('should download correct file', function(done) {
+  describe('[GET] /download/{hashvalue} Download previous uploaded file', function () {
+    it('should download correct file', function (done) {
       request(app)
         .get('/download/' + fileHash)
         .expect(200)
         .expect('Content-Type', /application\/octet-stream/)
-        .end(function(err, res) {
+        .end(function (err, res) {
           if (err) throw err;
           res.headers['content-disposition']
             .should.be.equal('attachment; filename=\"firmware.zip\"');
@@ -60,17 +60,17 @@ describe('Upload and download files from given url', function() {
     });
   });
 
-  describe('[GET] /download/{hashvalue} Download previous uploaded file (after n seconds)', function() {
-    it('should respond 404 Not found due to timeout', function(done) {
+  describe('[GET] /download/{hashvalue} Download previous uploaded file (after n seconds)', function () {
+    it('should respond 404 Not found due to timeout', function (done) {
       request(app)
         .get('/download/' + fileHash)
         .expect(404)
-        .end(function(err, res) {
+        .end(function (err, res) {
           if (err) throw err;
 
           // add some delay for async delete operation
-          setTimeout(function() {
-            require('fs').exists(__dirname + '/uploads/' + fileHash + '.js', function(exists) {
+          setTimeout(function () {
+            require('fs').exists(__dirname + '/uploads/' + fileHash + '.js', function (exists) {
               if (!exists) {
                 return done();
               }
@@ -86,12 +86,12 @@ describe('Upload and download files from given url', function() {
   });
 });
 
-describe('[POST] /upload Upload file that exceed the size', function() {
+describe('[POST] /upload Upload file that exceed the size', function () {
   var app;
   var fileHash;
   var clock = sinon.useFakeTimers();
 
-  before(function() {
+  before(function () {
     del.sync(__dirname + '/uploads/*');
     app = express();
     app.use(filebin({
@@ -104,14 +104,14 @@ describe('[POST] /upload Upload file that exceed the size', function() {
     }));
   });
 
-  it('should respond 202 OK and create the file on server', function(done) {
+  it('should respond 202 OK and create the file on server', function (done) {
     request(app)
       .post('/upload')
       .attach('firmware.zip', __dirname + '/api.js')
       .attach('ttt.zip', __dirname + '/../.jscsrc')
       .expect(400)
       .expect('Content-Type', /json/)
-      .end(function(err, res) {
+      .end(function (err, res) {
         if (err) throw err;
         done();
       });

@@ -5,18 +5,18 @@ var objectAssign = require('object-assign');
 var debug = require('debug')('filebin');
 var del = require('del');
 
-var onUpload = function(req, res, next) {
+var onUpload = function (req, res, next) {
   res.status(req.upload.code).json(req.upload.response);
 };
 
-var onDownload = function(req, res, next) {
+var onDownload = function (req, res, next) {
   res.download(req.download.file.path,
-    req.download.file.fieldname, function(err) {
+    req.download.file.fieldname, function (err) {
     if (err) return next(err);
   });
 };
 
-module.exports = function(options) {
+module.exports = function (options) {
   options = options || {};
   options.forceClean = (options.forceClean === false) ? false : true;
   options.baseUrl = options.baseUrl || 'http://localhost';
@@ -50,9 +50,9 @@ module.exports = function(options) {
   options.lruOptions = objectAssign({
     max: 50,
     maxAge: 60 * 60 * 1000,
-    dispose: function(key, n) {
+    dispose: function (key, n) {
       debug('Dispose file', n);
-      del(n.path, function() {
+      del(n.path, function () {
         debug('Delete', n.path);
       });
     }
@@ -60,10 +60,10 @@ module.exports = function(options) {
 
   // clean up
   if (options.forceClean) {
-    del.sync(options.uploadOptions.dest, {force: true});
+    del.sync(options.uploadOptions.dest, { force: true });
   }
 
-  var uploadHandler = function(req, res, next) {
+  var uploadHandler = function (req, res, next) {
     var response = [];
     var statusCode = 200;
     for (var index in req.files) {
@@ -87,16 +87,16 @@ module.exports = function(options) {
     req.upload = {
       code: statusCode,
       response: response
-    }
+    };
 
     next();
   };
 
-  var downloadHandler =  function(req, res, next) {
+  var downloadHandler =  function (req, res, next) {
     var id = req.params.id;
     var fileObj = cache.get(id);
     if (fileObj === undefined) {
-      return res.status(404).json({message: 'File not found!'});
+      return res.status(404).json({ message: 'File not found!' });
     }
 
     req.download = {
@@ -106,10 +106,11 @@ module.exports = function(options) {
     next();
   };
 
-  var errorHandler = function(err, req, res, next) {
+  var errorHandler = function (err, req, res, next) {
     if (!err) return next();
-    res.status(400).json({message: 'File exceeds configured limit.'});
-  }
+    console.error(err);
+    res.status(400).json({ message: 'something wrong, please check server log' });
+  };
 
   var cache = LRU(options.lruOptions);
   var router = express.Router();
