@@ -1,6 +1,6 @@
 {
   "name": "express-filebin",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Upload files and create download links for random files with LRU policy.",
   "main": "index.js",
   "scripts": {
