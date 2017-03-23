@@ -1,5 +1,7 @@
+var debug = require('debug')('filebinserver');
 var app = require('express')();
 var filebin = require('./index');
+var fileMaxAge = parseInt(process.env.FILE_MAX_AGE || 60 * 60) * 1000;
 var filebinOptions = {
   baseUrl: process.env.BASE_URL || '/',
   uploadOptions: {
@@ -7,8 +9,13 @@ var filebinOptions = {
     limits: {
       fileSize: 1024 * 1024 * 500
     }
+  },
+  lruOptions: {
+    maxAge: fileMaxAge
   }
 };
+
+debug(filebinOptions);
 
 app.use(filebin(filebinOptions));
 
