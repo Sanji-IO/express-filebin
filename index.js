@@ -1,9 +1,9 @@
 var express = require('express');
 var multer = require('multer');
-var LRU = require('lru-cache');
 var objectAssign = require('object-assign');
 var debug = require('debug')('filebin');
 var del = require('del');
+const LRUHandler = require('./handlers/local-lru-handler');
 
 var onUpload = function (req, res, next) {
   res.status(req.upload.code).json(req.upload.response);
@@ -46,65 +46,10 @@ module.exports = function (options) {
     }
   }, options.uploadOptions);
 
-  // LRU config
-  options.lruOptions = objectAssign({
-    max: 50,
-    maxAge: 60 * 60 * 1000,
-    dispose: function (key, n) {
-      debug('Dispose file', n);
-      del(n.path, function () {
-        debug('Delete', n.path);
-      });
-    }
-  }, options.lruOptions);
-
   // clean up
   if (options.forceClean) {
     del.sync(options.uploadOptions.dest, { force: true });
   }
-
-  var uploadHandler = function (req, res, next) {
-    var response = [];
-    var statusCode = 200;
-    for (var index in req.files) {
-      var file = req.files[index];
-      var hash = file.filename;
-
-      response.push({
-        fieldname: file.fieldname,
-        physicalPath: file.path,
-        url: options.baseUrl + '/download/' + hash
-      });
-
-      debug('cache.set', file);
-      cache.set(hash, file);
-    }
-
-    if (response.length === 1) {
-      response = response[0];
-    }
-
-    req.upload = {
-      code: statusCode,
-      response: response
-    };
-
-    next();
-  };
-
-  var downloadHandler =  function (req, res, next) {
-    var id = req.params.id;
-    var fileObj = cache.get(id);
-    if (fileObj === undefined) {
-      return res.status(404).json({ message: 'File not found!' });
-    }
-
-    req.download = {
-      file: fileObj
-    };
-
-    next();
-  };
 
   var errorHandler = function (err, req, res, next) {
     if (!err) return next();
@@ -112,14 +57,14 @@ module.exports = function (options) {
     res.status(400).json({ message: 'something wrong, please check server log' });
   };
 
-  var cache = LRU(options.lruOptions);
   var router = express.Router();
   var uploader = multer(options.uploadOptions);
+  var lruHandler = LRUHandler(options);
 
   router
-    .post(options.uploadPath, uploader.any(), uploadHandler, onUpload)
-    .put(options.uploadPath, uploader.any(), uploadHandler, onUpload)
-    .get(options.downloadPath, downloadHandler, onDownload)
+    .post(options.uploadPath, uploader.any(), lruHandler.uploadHandler, onUpload)
+    .put(options.uploadPath, uploader.any(), lruHandler.uploadHandler, onUpload)
+    .get(options.downloadPath, lruHandler.downloadHandler, onDownload)
     .use(errorHandler);
 
   return router;
