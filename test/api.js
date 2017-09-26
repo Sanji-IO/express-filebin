@@ -1,10 +1,13 @@
-var should = require('chai').should();
-var request = require('supertest');
-var express = require('express');
-var filebin = require('../index');
-var del = require('del');
-var fs = require('fs');
-var sinon = require('sinon');
+const should = require('chai').should();
+const request = require('supertest');
+const express = require('express');
+const filebin = require('../index');
+const del = require('del');
+const fs = require('fs');
+const sinon = require('sinon');
+const url = require('url');
+const S3rver = require('s3rver');
+const mkdirp = require('mkdirp');
 
 describe('Create two seperate instance', function () {
   it('should return different instance', function () {
@@ -14,10 +17,9 @@ describe('Create two seperate instance', function () {
   });
 });
 
-describe('Upload and download files from given url', function () {
+describe('Upload and download files from given url (LRU)', function () {
   var app;
   var fileHash;
-  var clock = sinon.useFakeTimers();
 
   before(function () {
     del.sync(__dirname + '/uploads/*');
@@ -45,6 +47,22 @@ describe('Upload and download files from given url', function () {
     });
   });
 
+  describe('[POST] /upload Upload multiple files', function () {
+    it('should respond 200 OK and create the file on server', function (done) {
+      request(app)
+        .post('/upload')
+        .attach('firmware.zip', __dirname + '/api.js')
+        .attach('firmware2.zip', __dirname + '/api.js')
+        .expect(200)
+        .expect('Content-Type', /json/)
+        .end(function (err, res) {
+          if (err) throw err;
+          console.log(JSON.stringify(res.body));
+          done();
+        });
+    });
+  });
+
   describe('[GET] /download/{hashvalue} Download previous uploaded file', function () {
     it('should download correct file', function (done) {
       request(app)
@@ -61,6 +79,8 @@ describe('Upload and download files from given url', function () {
   });
 
   describe('[GET] /download/{hashvalue} Download previous uploaded file (after n seconds)', function () {
+    var clock = sinon.useFakeTimers();
+    clock.tick(9990000);
     it('should respond 404 Not found due to timeout', function (done) {
       request(app)
         .get('/download/' + fileHash)
@@ -79,8 +99,6 @@ describe('Upload and download files from given url', function () {
             });
           }, 10);
         });
-
-      clock.tick(9990000);
       clock.restore();
     });
   });
@@ -89,7 +107,6 @@ describe('Upload and download files from given url', function () {
 describe('[POST] /upload Upload file that exceed the size', function () {
   var app;
   var fileHash;
-  var clock = sinon.useFakeTimers();
 
   before(function () {
     del.sync(__dirname + '/uploads/*');
@@ -104,7 +121,7 @@ describe('[POST] /upload Upload file that exceed the size', function () {
     }));
   });
 
-  it('should respond 202 OK and create the file on server', function (done) {
+  it('should respond 400 Bad request', function (done) {
     request(app)
       .post('/upload')
       .attach('firmware.zip', __dirname + '/api.js')
@@ -115,5 +132,77 @@ describe('[POST] /upload Upload file that exceed the size', function () {
         if (err) throw err;
         done();
       });
+  });
+});
+
+
+describe('Upload and download files from given url (S3)', function () {
+  var app;
+  var s3Server;
+  var downloadUrl;
+
+  before(function (done) {
+    del.sync(__dirname + '/uploads/*');
+    app = express();
+    app.use(filebin({
+      handler: 's3',
+      s3Options: {
+        accessKeyId: '1234',
+        secretAccessKey: '5678',
+        endpoint: 'http://localhost:5566',
+        s3BucketEndpoint: false,
+        use_ssl: false,
+        s3ForcePathStyle: true,
+        params: {
+          Bucket: 'test-bucket'
+        }
+      },
+      uploadOptions: {
+        dest: __dirname + '/uploads'
+      }
+    }));
+
+    mkdirp.sync('/tmp/s3/test-bucket');
+    s3Server = new S3rver({
+        port: 5566,
+        hostname: 'localhost',
+        silent: false,
+        directory: '/tmp/s3'
+    }).run(function (err, host, port) {
+        if(err) return done(err);
+        done();
+    });
+  });
+
+  describe('[POST] /upload Upload file', function () {
+    it('should respond 200 OK and create the file on server', function (done) {
+      request(app)
+        .post('/upload')
+        .attach('firmware.zip', __dirname + '/api.js')
+        .expect(200)
+        .expect('Content-Type', /json/)
+        .end(function (err, res) {
+          if (err) throw err;
+          const parsedUrl = url.parse(res.body.url);
+          downloadUrl = parsedUrl.path;
+          done();
+        });
+    });
+  });
+
+  describe('[GET] /download/{hashvalue} Download previous uploaded file', function () {
+    it('should download correct file', function (done) {
+      request(s3Server)
+        .get(downloadUrl)
+        .expect(200)
+        .expect('Content-Type', /application\/octet-stream/)
+        .end(function (err, res) {
+          if (err) throw err;
+          console.log(res.headers);
+          res.headers['content-disposition']
+            .should.be.equal('attachment; filename=\"firmware.zip\"');
+          done();
+        });
+    });
   });
 });
