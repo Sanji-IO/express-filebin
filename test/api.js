@@ -17,7 +17,6 @@ describe('Create two seperate instance', function () {
 describe('Upload and download files from given url', function () {
   var app;
   var fileHash;
-  var clock = sinon.useFakeTimers();
 
   before(function () {
     del.sync(__dirname + '/uploads/*');
@@ -61,6 +60,8 @@ describe('Upload and download files from given url', function () {
   });
 
   describe('[GET] /download/{hashvalue} Download previous uploaded file (after n seconds)', function () {
+    var clock = sinon.useFakeTimers();
+    clock.tick(9990000);
     it('should respond 404 Not found due to timeout', function (done) {
       request(app)
         .get('/download/' + fileHash)
@@ -79,8 +80,6 @@ describe('Upload and download files from given url', function () {
             });
           }, 10);
         });
-
-      clock.tick(9990000);
       clock.restore();
     });
   });
@@ -89,7 +88,6 @@ describe('Upload and download files from given url', function () {
 describe('[POST] /upload Upload file that exceed the size', function () {
   var app;
   var fileHash;
-  var clock = sinon.useFakeTimers();
 
   before(function () {
     del.sync(__dirname + '/uploads/*');
@@ -104,7 +102,7 @@ describe('[POST] /upload Upload file that exceed the size', function () {
     }));
   });
 
-  it('should respond 202 OK and create the file on server', function (done) {
+  it('should respond 400 Bad request', function (done) {
     request(app)
       .post('/upload')
       .attach('firmware.zip', __dirname + '/api.js')
