@@ -23,6 +23,7 @@
     "url": "https://github.com/Sanji-IO/express-filebin/issues"
   },
   "homepage": "https://github.com/Sanji-IO/express-filebin",
+  "engines" : { "node" : ">=6" },
   "dependencies": {
     "aws-sdk": "^2.122.0",
     "bluebird": "^3.5.0",
