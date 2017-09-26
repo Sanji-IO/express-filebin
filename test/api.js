@@ -145,11 +145,12 @@ describe('Upload and download files from given url (S3)', function () {
       }
     }));
 
+    fs.mkdirSync('/tmp/s3/test-bucket');
     s3Server = new S3rver({
         port: 5566,
         hostname: 'localhost',
         silent: false,
-        directory: '/tmp/s3rver_test_directory'
+        directory: '/tmp/s3'
     }).run(function (err, host, port) {
         if(err) return done(err);
         done();
