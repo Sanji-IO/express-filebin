@@ -1,7 +1,8 @@
 language: node_js
+sudo: false
 node_js:
-  - "0.10"
-notifications:
-  slack:
-    rooms:
-      - sys:yeTvjm0bw1tX6MBWrfkVL5RG#travis
+  - "6"
+  - "7"
+  - "8"
+  - node
+  - "lts/*"
