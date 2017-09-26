@@ -6,9 +6,6 @@ const S3 = require('aws-sdk/clients/s3');
 const fs = require('fs');
 const Promise = require('bluebird');
 
-// ***REMOVED***
-// ***REMOVED***
-
 module.exports = function (options) {
 
   options.s3Options = options.s3Options || {};
@@ -23,7 +20,6 @@ module.exports = function (options) {
   }, options.s3Options);
 
   const s3 = new S3(s3Options);
-
   var uploadHandler = function (req, res, next) {
     Promise.map(req.files, function (file) {
       const filenameHash = file.filename;
@@ -36,6 +32,7 @@ module.exports = function (options) {
         ACL: 'bucket-owner-full-control',
         Body: fs.createReadStream(file.path),
         Key: filenameHash,
+        ContentDisposition: `attachment; filename="${fileinfo.fieldname}"`,
         Tagging: 'uploader=express-filebin'
       })
       .promise()
@@ -64,7 +61,7 @@ module.exports = function (options) {
       }
 
       req.upload = {
-        code: statusCode,
+        code: 200,
         response: response
       };
 
@@ -77,7 +74,12 @@ module.exports = function (options) {
     });
   };
 
+  const downloadHandler = function (req, res, next) {
+    return res.json({message: 'S3 mode, please use s3 url directly.'});
+  };
+
   return {
-    uploadHandler: uploadHandler
+    uploadHandler: uploadHandler,
+    downloadHandler: downloadHandler
   };
 };
