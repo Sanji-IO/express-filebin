@@ -3,7 +3,7 @@ const multer = require('multer');
 const objectAssign = require('object-assign');
 const debug = require('debug')('filebin');
 const del = require('del');
-const LRUHandler = require('./handlers/local-lru-handler');
+const LocalHandler = require('./handlers/local-handler');
 const S3Handler = require('./handlers/s3-handler');
 
 const onUpload = function (req, res, next) {
@@ -31,13 +31,12 @@ const reqErrHandler = function (err, req, res, next) {
 
 module.exports = function (options) {
   options = options || {};
-  options.handler = options.handler || 'lru';
+  options.handler = options.handler || process.env.HANDLER || 'local';
   options.forceClean = (options.forceClean === false) ? false : true;
-  options.baseUrl = options.baseUrl || 'http://localhost';
+  options.baseUrl = options.baseUrl || process.env.BASE_URL || 'http://localhost';
   options.uploadOptions = options.uploadOptions || {};
-  options.lruOptions = options.lruOptions || {};
-  options.uploadPath = options.uploadPath || '/upload';
-  options.downloadPath = options.downloadPath || '/download/:id';
+  options.uploadPath = options.uploadPath || process.env.UPLOAD_PATH || '/upload';
+  options.downloadPath = options.downloadPath || process.env.DOWNLOAD_PATH || '/download/:id';
 
   if (!options.onUpload || typeof (options.onUpload) !== 'function') {
     debug('Use default onUpload');
@@ -51,12 +50,12 @@ module.exports = function (options) {
 
   // Upload config
   options.uploadOptions = objectAssign({
-    dest: __dirname + '/uploads',
+    dest: process.env.FILE__DEST || __dirname + '/uploads',
     limits: {
-      fieldNameSize: 100,
-      fileSize: 1024 * 1024 * 100,
-      files: 5,
-      fields: 5
+      fieldNameSize: +process.env.FILE__LIMITS__FIELDNAMESIZE || 100,
+      fileSize: +process.env.FILE__LIMITS__FILESIZE || 1024 * 1024 * 100,
+      files: +process.env.FILE__LIMITS__FILES || 5,
+      fields: +process.env.FILE__LIMITS__FIELDS || 5
     }
   }, options.uploadOptions);
 
@@ -68,15 +67,17 @@ module.exports = function (options) {
   const router = express.Router();
   const uploader = multer(options.uploadOptions);
   var handler;
-  if (options.handler === 'lru') {
-    handler = LRUHandler(options);
+  if (options.handler === 'local') {
+    handler = LocalHandler(options);
   } else if (options.handler === 's3') {
     handler = S3Handler(options);
   }
 
   router
-    .post(options.uploadPath, uploader.any(), reqErrHandler, handler.uploadHandler, onUpload)
-    .put(options.uploadPath, uploader.any(), reqErrHandler, handler.uploadHandler, onUpload)
+    .post(options.uploadPath, uploader.any(), reqErrHandler,
+      handler.uploadHandler, onUpload)
+    .put(options.uploadPath, uploader.any(), reqErrHandler,
+      handler.uploadHandler, onUpload)
     .get(options.downloadPath, handler.downloadHandler, onDownload)
     .use(errorHandler);
 

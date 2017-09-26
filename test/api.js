@@ -7,6 +7,7 @@ const fs = require('fs');
 const sinon = require('sinon');
 const url = require('url');
 const S3rver = require('s3rver');
+const mkdirp = require('mkdirp');
 
 describe('Create two seperate instance', function () {
   it('should return different instance', function () {
@@ -41,6 +42,22 @@ describe('Upload and download files from given url (LRU)', function () {
           if (err) throw err;
           var url = res.body.url;
           fileHash = url.substring(url.length - 32);
+          done();
+        });
+    });
+  });
+
+  describe('[POST] /upload Upload multiple files', function () {
+    it('should respond 200 OK and create the file on server', function (done) {
+      request(app)
+        .post('/upload')
+        .attach('firmware.zip', __dirname + '/api.js')
+        .attach('firmware2.zip', __dirname + '/api.js')
+        .expect(200)
+        .expect('Content-Type', /json/)
+        .end(function (err, res) {
+          if (err) throw err;
+          console.log(JSON.stringify(res.body));
           done();
         });
     });
@@ -145,7 +162,7 @@ describe('Upload and download files from given url (S3)', function () {
       }
     }));
 
-    fs.mkdirSync('/tmp/s3/test-bucket');
+    mkdirp.sync('/tmp/s3/test-bucket');
     s3Server = new S3rver({
         port: 5566,
         hostname: 'localhost',
