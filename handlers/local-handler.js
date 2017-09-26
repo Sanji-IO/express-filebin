@@ -1,4 +1,4 @@
-const debug = require('debug')('filebin:local-lru-handler');
+const debug = require('debug')('filebin:local-handler');
 const objectAssign = require('object-assign');
 const LRU = require('lru-cache');
 const del = require('del');
@@ -6,8 +6,8 @@ const del = require('del');
 module.exports = function (options) {
   // LRU config
   options.lruOptions = objectAssign({
-    max: 50,
-    maxAge: 60 * 60 * 1000,
+    max: +process.env.LOCAL__MAX || 50,
+    maxAge: +process.env.LOCAL__MAX__AGE || 60 * 60 * 1000,
     dispose: function (key, n) {
       debug('Dispose file', n);
       del(n.path, function () {
