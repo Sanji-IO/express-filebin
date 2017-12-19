@@ -43,7 +43,7 @@ module.exports = function (options) {
         };
 
         debug('get pre-signed download link for', data);
-        return del(file.path).then(function () {
+        return del(file.path, {force: true}).then(function () {
           debug('temp file deleted', file.path);
           return new Promise(function (resolve, reject) {
             s3.getSignedUrl('getObject', presignedParams, function(err, url) {
